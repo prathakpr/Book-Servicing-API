@@ -1,163 +1,114 @@
-// Dependencies
-const express = require('express');
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
+// requiring important modules for the authentication process
+const express = require("express");
+const bcryptjs = require("bcryptjs");
+const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
 
+//creating app instance of expresss
 const app = express();
+const PORT = 3000; //running on PORT 3000
+
+// Setting Express Routers For Readibility
+const booksRouter = require('./routes/bookroutes');
+app.use('/books', booksRouter);
+
+//connecting to mongo db
+mongoose.connect('mongodb://localhost:27017/pulkits_database')
+.then(() => {
+  console.log('Connected to MongoDB');
+})
+.catch((error) => {
+  console.error('Error connecting to MongoDB:', error);
+});
+
+// doing data modeling of user's details or creating a schema
+
+const userSchema = new mongoose.Schema({
+    username : String,
+    email : String,
+    password : String
+
+});
+
+const user = mongoose.model("user", userSchema);
+
+// middleware to ensure the JWT
+const verifyToken  = (req, res, next) =>{
+const token = req.headers['auth_token'];
+if(!token) return res.status(401).send("INVALID AUTHORIZATION");
+
+jwt.verify(token,'pulkits secret', (err, decoded)=>{
+    if(err) return res.status(401).send("WRONG CREDENTIAL");
+    req.user = decoded;
+    next();
+})
+}
+
+// Parses incoming JSON requests so that get req.body data
 app.use(express.json());
 
-// MongoDB Setup
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("MongoDB connected"))
-    .catch(err => console.error("MongoDB connection error:", err));
+//chect get request
+app.get('/api', (req, res)=>{
+    res.status(201).send("checked");
+})
 
-// Models
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true }, // Ensure unique usernames
-    password: { type: String, required: true },
-    role: { type: String, enum: ['Author', 'Borrower'], required: true }
-});
-
-const bookSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Author must be present
-    borrower: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    library: { type: mongoose.Schema.Types.ObjectId, ref: 'Library', required: true }, // Library must be present
-    coverImage: { type: String } // Reference to Firebase image URL
-});
-
-const librarySchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    books: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Book' }]
-});
-
-const User = mongoose.model('User', userSchema);
-const Book = mongoose.model('Book', bookSchema);
-const Library = mongoose.model('Library', librarySchema);
-
-// Auth Middleware
-const auth = (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-
+//signup POST route
+app.post('/api/signup', async (req, res)=>{
     try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = verified; // Attach verified user info to request
-        next();
-    } catch (err) {
-        return res.status(400).json({ message: 'Invalid Token' });
+        const existingUser = await user.findOne({email : req.body.email});
+        if(existingUser) return res.status(400).send("Email already exists");
+
+        //using bcrypt to hash the password with salt value of 10
+        const hashedPassword = await bcryptjs.hash(req.body.password, 10);
+
+        // creating the new user
+        const newUser = new user({
+            username : req.body.username,
+            email : req.body.email,
+            password : hashedPassword
+        });
+
+        await newUser.save();
+        res.status(201).send("Signup successfully");
+    } catch(err){
+        res.status(500).send("Internal server error");
     }
-};
+});
 
-// Register User
-app.post('/api/users/register', async (req, res) => {
-    const { username, password, role } = req.body;
-
-    // Validate input
-    if (!username || !password || !role) {
-        return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword, role });
-
+// Route for Login
+app.post('/api/login', async (req, res)=>{
     try {
-        await user.save();
-        res.json({ message: 'User registered successfully' });
-    } catch (err) {
-        return res.status(500).json({ message: 'Error registering user', error: err.message });
+        const userProvided = await user.findOne({email : req.body.email});
+        if(!userProvided) return res.status(401).send("Invalid credentials"); 
+
+        //comparing password
+        const passwordMatch = bcryptjs.compare( req.body.password , userProvided.password);
+        if(!passwordMatch) return res.status(401).send("Invalid credentials");
+
+        // generating Json web token for further use
+        const token = jwt.sign({ email: userProvided.email }, 'pulkits secret',  { expiresIn: '1m' } ); //changed to expire in 1 minute
+        res.status(200).json({ token });
+    } catch(err){
+        res.status(500).send("Internal server error");
     }
 });
 
-// Login User
-app.post('/api/users/login', async (req, res) => {
-    const { username, password } = req.body;
+// route for geting an api when you are authorized user
+app.get('/api/get', verifyToken, async (req, res)=>{
+    try {
+        // Fetched user details using decoded token
 
-    // Validate input
-    if (!username || !password) {
-        return res.status(400).json({ message: 'Username and password are required' });
-    }
+        const userProvided = await user.findOne({ email: req.user.email });
+        if(!userProvided) return res.status(401).send("Unauthorized");
 
-    const user = await User.findOne({ username });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET);
-    res.json({ token });
+        res.status(200).json({ username: userProvided.username, email: userProvided.email });
+    }catch (err) {
+        res.status(500).send("Internal server error");
+      }
 });
 
-// Borrow a Book
-app.post('/api/borrow', auth, async (req, res) => {
-    const { bookId } = req.body;
 
-    if (!bookId) return res.status(400).json({ message: 'Book ID is required' });
-
-    const book = await Book.findById(bookId);
-    if (!book) return res.status(404).json({ message: 'Book not found' });
-
-    if (book.borrower) return res.status(400).json({ message: 'Book is already borrowed' });
-
-    book.borrower = req.user._id;
-    await book.save();
-    res.json({ message: 'Book borrowed successfully' });
-});
-
-// Return a Book
-app.put('/api/return/:id', auth, async (req, res) => {
-    const book = await Book.findById(req.params.id);
-    if (!book) return res.status(404).json({ message: 'Book not found' });
-
-    if (!book.borrower || book.borrower.toString() !== req.user._id.toString()) {
-        return res.status(400).json({ message: 'You cannot return this book' });
-    }
-
-    book.borrower = null;
-    await book.save();
-    res.json({ message: 'Book returned successfully' });
-});
-
-// Get All Libraries
-app.get('/api/libraries', auth, async (req, res) => {
-    const libraries = await Library.find().populate('books');
-    res.json(libraries);
-});
-
-// Get Specific Library with Books
-app.get('/api/libraries/:id', auth, async (req, res) => {
-    const library = await Library.findById(req.params.id).populate('books');
-    if (!library) return res.status(404).json({ message: 'Library not found' });
-    res.json(library);
-});
-
-// Add a Book to Library Inventory
-app.post('/api/libraries/:id/inventory', auth, async (req, res) => {
-    const { bookId } = req.body;
-
-    if (!bookId) return res.status(400).json({ message: 'Book ID is required' });
-
-    const library = await Library.findById(req.params.id);
-    if (!library) return res.status(404).json({ message: 'Library not found' });
-
-    library.books.push(bookId);
-    await library.save();
-    res.json({ message: 'Book added to library inventory' });
-});
-
-// Remove Book from Library Inventory
-app.delete('/api/libraries/:id/inventory/:bookId', auth, async (req, res) => {
-    const library = await Library.findById(req.params.id);
-    if (!library) return res.status(404).json({ message: 'Library not found' });
-
-    library.books.pull(req.params.bookId);
-    await library.save();
-    res.json({ message: 'Book removed from library inventory' });
-});
-
-// Start Server
-const PORT = process.env.PORT || 3000;
+// Start the server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
