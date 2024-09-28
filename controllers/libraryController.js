@@ -75,6 +75,40 @@ const updateLibrary = async (req, res) => {
         res.status(500).json({ message: 'Error updating library', error: error.message });
     }
 };
+
+//Delete a library by its ID
+const deleteLibrary = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const deletedLibrary = await Library.findByIdAndDelete(id);
+
+        if (!deletedLibrary) {
+            return res.status(404).json({ message: 'Library not found' });
+        }
+
+        res.json({ message: 'Library deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting library', error: error.message });
+    }
+};
+
+//Retrieve a list of books available in a specific library
+const getLibraryInventory = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const library = await Library.findById(id).populate('books');
+
+        if (!library) {
+            return res.status(404).json({ message: 'Library not found' });
+        }
+
+        res.json(library.books);
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving library inventory', error: error.message });
+    }
+};
   
 
 module.exports = {
