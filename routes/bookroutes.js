@@ -91,4 +91,8 @@ router.delete('/:id', verifyToken, async (req, res) => {
 });
 
 
+// for borrow and returning the book
+router.post('/borrow', auth, borrowBook);
+router.put('/return/:id', auth, returnBook);
+
 module.exports = booksRouter;
