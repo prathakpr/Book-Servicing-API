@@ -1,6 +1,8 @@
 const express = require('express');
-const { borrowBook, returnBook } = require('./controllers/bookController');
-const verifyToken = require('./middleware/authMiddleware'); //Adding verify token middleware to verify that only authenticate user can use the APIs
+const { borrowBook, returnBook } = require('../controllers/bookController');
+const verifyToken = require('../middleware/authMiddleware'); //Adding verify token middleware to verify that only authenticate user can use the APIs
+
+const router = express.Router();
 
 // GET /api/books – Retrieve a list of all books
 router.get('/', verifyToken, async (req, res) => {
@@ -92,7 +94,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
 
 // for borrow and returning the book
-router.post('/borrow', auth, borrowBook);
-router.put('/return/:id', auth, returnBook);
+router.post('/borrow', verifyToken, borrowBook);
+router.put('/return/:id', verifyToken, returnBook);
 
-module.exports = booksRouter;
+module.exports = router;

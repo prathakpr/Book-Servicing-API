@@ -1,4 +1,4 @@
-const Library = require('./models/Library');
+const Library = require('../models/library');
 
 // Get All Libraries
 const getAllLibraries = async (req, res) => {

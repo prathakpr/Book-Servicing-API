@@ -1,4 +1,4 @@
-const Book = require('./models/Book');
+const Book = require('../models/book');
 
 // Borrow a Book
 const borrowBook = async (req, res) => {
