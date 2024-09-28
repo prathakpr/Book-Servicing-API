@@ -33,11 +33,55 @@ const addBookToLibrary = async (req, res) => {
     await library.save(); // after remove saving the db
     res.json({ message: 'Book removed from library inventory' });
   };
+
+  //Create a new library
+
+  const createLibrary = async (req, res) => {
+    const { name } = req.body;
+
+    // Validate input
+    if (!name) {
+        return res.status(400).json({ message: 'Library name is required' });
+    }
+
+    try {
+        const newLibrary = new Library({ name });
+        await newLibrary.save();
+        res.status(201).json({ message: 'Library created successfully', library: newLibrary });
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating library', error: error.message });
+    }
+};
+
+//Update details of a specific library by its ID
+const updateLibrary = async (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    // Validate input
+    if (!name) {
+        return res.status(400).json({ message: 'Library name is required' });
+    }
+
+    try {
+        const updatedLibrary = await Library.findByIdAndUpdate(id, { name }, { new: true });
+
+        if (!updatedLibrary) {
+            return res.status(404).json({ message: 'Library not found' });
+        }
+
+        res.json({ message: 'Library updated successfully', library: updatedLibrary });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating library', error: error.message });
+    }
+};
   
 
 module.exports = {
   getAllLibraries,
   getLibraryById,
   addBookToLibrary,
-  removeBookFromLibrary
+  removeBookFromLibrary,
+  createLibrary,
+  updateLibrary
 };
