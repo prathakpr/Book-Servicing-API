@@ -13,24 +13,11 @@ const booksRouter = require('./routes/bookroutes');
 app.use('/books', booksRouter);
 
 //connecting to mongo db
-mongoose.connect('mongodb://localhost:27017/pulkits_database')
-.then(() => {
-  console.log('Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('Error connecting to MongoDB:', error);
-});
-
+const connectDB = require('./config/db');
+connectDB();
 // doing data modeling of user's details or creating a schema
 
-const userSchema = new mongoose.Schema({
-    username : String,
-    email : String,
-    password : String
-
-});
-
-const user = mongoose.model("user", userSchema);
+const user = require('./models/users');
 
 // middleware to ensure the JWT
 const verifyToken  = (req, res, next) =>{
