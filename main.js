@@ -19,18 +19,6 @@ connectDB();
 
 const user = require('./models/users');
 
-// middleware to ensure the JWT
-const verifyToken  = (req, res, next) =>{
-const token = req.headers['auth_token'];
-if(!token) return res.status(401).send("INVALID AUTHORIZATION");
-
-jwt.verify(token,'pulkits secret', (err, decoded)=>{
-    if(err) return res.status(401).send("WRONG CREDENTIAL");
-    req.user = decoded;
-    next();
-})
-}
-
 // Parses incoming JSON requests so that get req.body data
 app.use(express.json());
 
