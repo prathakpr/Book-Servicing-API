@@ -88,16 +88,18 @@ exports.updateBook = async (req, res) => {
 
 // DELETE /api/books/:title – Delete a book by its title
 exports.deleteBook = async (req, res) => {
+    const { title } = req.params; // Get title from request parameters
+
     try {
-        const book = await Book.findOne({ title: req.params.title }); // Find book by title
+        const book = await Book.findOne({ title }); // Find the book by title
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
 
-        await book.remove();
+        await Book.deleteOne({ _id: book._id }); // Delete the book by ID
         res.json({ message: 'Book deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Error deleting book', error: error.message });
+        res.status(500).json({ message: 'Error deleting book', error: error.message }); // Log error message
     }
 };
 
