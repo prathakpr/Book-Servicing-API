@@ -1,100 +1,37 @@
 const express = require('express');
-const { borrowBook, returnBook } = require('../controllers/bookController');
-const verifyToken = require('../middleware/authMiddleware'); //Adding verify token middleware to verify that only authenticate user can use the APIs
+const {
+    getAllBooks,
+    getBookById,
+    createBook,
+    updateBook,
+    deleteBook,
+    borrowBook,
+    returnBook
+} = require('../controllers/bookController');
+const verifyToken = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 
 // GET /api/books – Retrieve a list of all books
-router.get('/', verifyToken, async (req, res) => {
-    try {
-        const books = await Book.find();
-        res.json(books);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching books' });
-    }
-});
+router.get('/', verifyToken, getAllBooks);
 
 // GET /api/books/:id – Retrieve details of a specific book by its ID
-router.get('/:id', verifyToken, async (req, res) => {
-    try {
-        const book = await Book.findById(req.params.id)
-            .populate('author')    // Populates author details
-            .populate('borrower')  // Populates borrower details
-            .populate('library');  // Populates library details
-        
-        if (!book) {
-            return res.status(404).json({ message: 'Book not found' });
-        }
+router.get('/:id', verifyToken, getBookById);
 
-        res.json(book);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching book details' });
-    }
-});
-
-// POST /api/books – Create a new book entry
-router.post('/', verifyToken, async (req, res) => {
-    const { title, author, library, coverImage } = req.body;
-
-    if (!title || !author || !library) {
-        return res.status(400).json({ message: 'Title, author, and library are required' });
-    }
-
-    try {
-        const newBook = new Book({
-            title,
-            author,
-            library,
-            coverImage
-        });
-        await newBook.save();
-        res.json({ message: 'Book created successfully', book: newBook });
-    } catch (error) {
-        res.status(500).json({ message: 'Error creating book' });
-    }
-});
+// POST /api/books – Create a new book entry with cover image
+router.post('/', verifyToken, upload.single('coverImage'), createBook);
 
 // PUT /api/books/:id – Update details of a specific book by its ID
-router.put('/:id', verifyToken, async (req, res) => {
-    const { title, author, borrower, library, coverImage } = req.body;
-
-    try {
-        const book = await Book.findById(req.params.id);
-        if (!book) {
-            return res.status(404).json({ message: 'Book not found' });
-        }
-
-        book.title = title || book.title;
-        book.author = author || book.author;
-        book.borrower = borrower || book.borrower;
-        book.library = library || book.library;
-        book.coverImage = coverImage || book.coverImage;
-
-        await book.save();
-        res.json({ message: 'Book updated successfully', book });
-    } catch (error) {
-        res.status(500).json({ message: 'Error updating book' });
-    }
-});
+router.put('/:id', verifyToken, upload.single('coverImage'), updateBook);
 
 // DELETE /api/books/:id – Delete a book by its ID
-router.delete('/:id', verifyToken, async (req, res) => {
-    try {
-        const book = await Book.findById(req.params.id);
-        if (!book) {
-            return res.status(404).json({ message: 'Book not found' });
-        }
+router.delete('/:id', verifyToken, deleteBook);
 
-        await book.remove();
-        res.json({ message: 'Book deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting book' });
-    }
-});
-
-
-// for borrow and returning the book
+// POST /api/books/borrow – Borrow a book
 router.post('/borrow', verifyToken, borrowBook);
+
+// PUT /api/books/return/:id – Return a borrowed book
 router.put('/return/:id', verifyToken, returnBook);
 
 module.exports = router;
