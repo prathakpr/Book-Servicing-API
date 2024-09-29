@@ -1,6 +1,7 @@
 const user = require('../models/users');
 const bcryptjs = require("bcryptjs");
 const jwt = require('jsonwebtoken');
+const generateToken = require('../lib/jwtHelper');
 
 const signup = async (req, res)=>{
     try {
@@ -14,7 +15,8 @@ const signup = async (req, res)=>{
         const newUser = new user({
             username : req.body.username,
             email : req.body.email,
-            password : hashedPassword
+            password : hashedPassword,
+            role : req.body.role
         });
 
         await newUser.save();
@@ -34,8 +36,10 @@ const login = async (req, res)=>{
         if(!passwordMatch) return res.status(401).send("Invalid credentials");
 
         // generating Json web token for further use
-        const token = jwt.sign({ email: userProvided.email }, 'pulkits secret',  { expiresIn: '1m' } ); //changed to expire in 1 minute
-        res.status(200).json({ token });
+       const token = generateToken({ email: userProvided.email }); 
+       
+       res.status(200).json({ token });
+
     } catch(err){
         res.status(500).send("Internal server error");
     }
