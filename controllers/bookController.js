@@ -1,5 +1,6 @@
 const Book = require('../models/book');
-const { uploadImage } = require('../services/firebase');
+const { uploadImage } = require('./firebase');
+
 // GET /api/books – Retrieve a list of all books
 exports.getAllBooks = async (req, res) => {
     try {
@@ -10,13 +11,12 @@ exports.getAllBooks = async (req, res) => {
     }
 };
 
-// GET /api/books/:id – Retrieve details of a specific book by its ID
-exports.getBookById = async (req, res) => {
+// GET /api/books/:title – Retrieve details of a specific book by its title
+exports.getBookByTitle = async (req, res) => {
+    const { title } = req.params;
+
     try {
-        const book = await Book.findById(req.params.id)
-            .populate('author')
-            .populate('borrower')
-            .populate('library');
+        const book = await Book.findOne({ title: title });
         
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
@@ -28,49 +28,52 @@ exports.getBookById = async (req, res) => {
     }
 };
 
+
 // POST /api/books – Create a new book entry
 const { bucket } = require('./firebase'); // Import the Firebase bucket configuration
 const path = require('path'); // Node.js path module for handling file paths
 
 // POST /api/books – Create a new book entry
 exports.createBook = async (req, res) => {
-  const { title, author, library } = req.body;
-  const coverImage = req.file; // Get the uploaded file
+    const { title, author, library } = req.body;
+    const coverImage = req.file ? req.file.path : null; // Ensure this returns the correct path as a string
 
-  if (!title || !author || !library) {
-      return res.status(400).json({ message: 'Title, author, and library are required' });
-  }
+    if (!title || !author || !library) {
+        return res.status(400).json({ message: 'Title, author, and library are required' });
+    }
 
-  try {
-      // Upload image to Firebase Storage and get the public URL
-      const publicUrl = await uploadImage(coverImage);
+    try {
+        const newBook = new Book({
+            title,
+            author,
+            library,
+            coverImage // Ensure this is a string path to the image
+        });
 
-      const newBook = new Book({
-          title,
-          author,
-          library,
-          coverImage: publicUrl, // Save the public URL
-      });
+        // Upload image to Firebase
+        if (coverImage) {
+            await uploadImage(coverImage, `covers/${req.file.filename}`); // Update the destination path as needed
+        }
 
-      await newBook.save();
-      res.json({ message: 'Book created successfully', book: newBook });
-  } catch (error) {
-      res.status(500).json({ message: 'Error creating book', error: error.message });
-  }
+        await newBook.save();
+        res.json({ message: 'Book created successfully', book: newBook });
+    } catch (error) {
+        console.error('Error creating book:', error); // Log the error for debugging
+        res.status(500).json({ message: 'Error creating book', error: error.message });
+    }
 };
 
-// PUT /api/books/:id – Update details of a specific book by its ID
+// PUT /api/books/:title – Update details of a specific book by its title
 exports.updateBook = async (req, res) => {
     const { title, author, borrower, library } = req.body;
     const coverImage = req.file ? req.file.filename : null;
 
     try {
-        const book = await Book.findById(req.params.id);
+        const book = await Book.findOne({ title: req.params.title }); // Find book by title
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
 
-        book.title = title || book.title;
         book.author = author || book.author;
         book.borrower = borrower || book.borrower;
         book.library = library || book.library;
@@ -79,14 +82,14 @@ exports.updateBook = async (req, res) => {
         await book.save();
         res.json({ message: 'Book updated successfully', book });
     } catch (error) {
-        res.status(500).json({ message: 'Error updating book' });
+        res.status(500).json({ message: 'Error updating book', error: error.message });
     }
 };
 
-// DELETE /api/books/:id – Delete a book by its ID
+// DELETE /api/books/:title – Delete a book by its title
 exports.deleteBook = async (req, res) => {
     try {
-        const book = await Book.findById(req.params.id);
+        const book = await Book.findOne({ title: req.params.title }); // Find book by title
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
@@ -94,15 +97,15 @@ exports.deleteBook = async (req, res) => {
         await book.remove();
         res.json({ message: 'Book deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Error deleting book' });
+        res.status(500).json({ message: 'Error deleting book', error: error.message });
     }
 };
 
-// POST /api/books/borrow – Borrow a book
+// POST /api/books/borrow – Borrow a book by title
 exports.borrowBook = async (req, res) => {
-    const { bookId, borrower } = req.body;
+    const { title, borrower } = req.body; // Use title instead of bookId
     try {
-        const book = await Book.findById(bookId);
+        const book = await Book.findOne({ title }); // Find book by title
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
@@ -111,7 +114,7 @@ exports.borrowBook = async (req, res) => {
         await book.save();
         res.json({ message: 'Book borrowed successfully', book });
     } catch (error) {
-        res.status(500).json({ message: 'Error borrowing book' });
+        res.status(500).json({ message: 'Error borrowing book', error: error.message });
     }
 };
 
