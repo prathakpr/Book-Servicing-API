@@ -11,7 +11,7 @@ A **Books Service API** built with **Node.js** and **Express.js**, providing fun
 
 - ### Screenshots
 
-| Screenshot 1               | Screenshot 2               | Screenshot 3               |
+|  Firebase Storage               | MongoDB Compass              | Postman               |
 | -------------------------- | -------------------------- | -------------------------- |
 | ![Screenshot1](https://github.com/prathakpr/Book-Servicing-API/blob/main/Screenshots/Firbase%20Storage%20Bucket.png) | ![Screenshot2](https://github.com/prathakpr/Book-Servicing-API/blob/main/Screenshots/Mongo%20DB%20Compass.png) | ![Screenshot3](https://github.com/prathakpr/Book-Servicing-API/blob/main/Screenshots/Postman%20working.png) |
   
